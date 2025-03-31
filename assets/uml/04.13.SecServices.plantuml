@@ -1,0 +1,77 @@
+@startuml 04-component-security-services
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+!includeurl C4Puml/C4_Component.puml
+
+' AWS Icons
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/SecurityIdentityCompliance/KeyManagementService.puml
+!include AWSPuml/SecurityIdentityCompliance/SecretsManager.puml
+!include AWSPuml/SecurityIdentityCompliance/CertificateManager.puml
+!include AWSPuml/SecurityIdentityCompliance/GuardDuty.puml
+!include AWSPuml/SecurityIdentityCompliance/SecurityHub.puml
+!include AWSPuml/SecurityIdentityCompliance/Macie.puml
+!include AWSPuml/SecurityIdentityCompliance/Detective.puml
+!include AWSPuml/SecurityIdentityCompliance/Inspector.puml
+!include AWSPuml/SecurityIdentityCompliance/NetworkFirewall.puml
+!include AWSPuml/SecurityIdentityCompliance/PaymentCryptography.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Security Services Hub
+
+Person(admin, "Admin", "Manages security policies and configuration")
+
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(securityHub, "Security Services Hub") {
+            AWSAccountGroup(securityAcc, "Indentity & Security Account") {
+                KeyManagementService(kms, "AWS KMS", "AWS Key Management Service", "Handles key encryption and decryption")
+                SecretsManager(secrets, "Secrets Manager", "AWS Secrets Manager", "Stores and retrieves sensitive configuration")
+                CertificateManager(acm, "Certificate Manager", "AWS Certificate Manager", "Manages TLS certificates")
+                GuardDuty(guardduty, "Amazon GuardDuty", "Threat detection service")
+                SecurityHub(sechub, "Security Hub", "Aggregates and prioritizes security alerts")
+                Macie(macie, "Amazon Macie", "Sensitive data discovery and protection")
+                Detective(detective, "Amazon Detective", "Investigates suspicious activity")
+                Inspector(inspector, "Amazon Inspector", "Automated vulnerability management")
+                NetworkFirewall(firewall, "AWS Network Firewall", "Traffic inspection and filtering")
+                VPCGroup(vpc, "VPC Payment Crypto") {
+                    PaymentCryptography(cryptoAPI, "AWS Payment Cryptography", "Cryptographic operations for payment APIs")
+                }
+            }
+        }
+
+        ' Other Systems
+        System(payhub, "Payment Hub")
+        System(monitoringHub, "Monitoring Hub")
+        System(integrationHub, "Integration Hub")
+        System(reportingHub, "Reporting Hub")
+    }
+}
+
+' Relationships
+Rel(admin, securityAcc, "Administers security policies and interactions", "AWS Console/API")
+
+Rel(payhub, kms, "Encrypts/decrypts sensitive data", "KMS API")
+Rel(payhub, secrets, "Retrieves secrets (tokens, DB credentials)", "Secrets Manager API")
+Rel(payhub, cryptoAPI, "Performs cryptographic payment operations", "API")
+Rel(payhub, acm, "Uses TLS certificates", "TLS/HTTPS")
+
+Rel(monitoringHub, sechub, "Sends security alerts and logs")
+Rel(integrationHub, firewall, "Filtered network traffic", "VPC Traffic")
+
+Rel(detective, guardduty, "Investigates security findings", "API")
+Rel(inspector, payhub, "Scans for vulnerabilities", "API")
+Rel(macie, payhub, "Discovers sensitive data", "API")
+Rel(macie, monitoringHub, "Sends alerts for sensitive data", "API")
+Rel(macie, reportingHub, "Sends alerts for sensitive data", "API")
+
+
+SHOW_LEGEND()
+
+@enduml

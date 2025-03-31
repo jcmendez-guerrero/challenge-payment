@@ -1,0 +1,70 @@
+@startuml 04-component-administration-hub
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+!includeurl C4Puml/C4_Component.puml
+
+' AWS Icons
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/Compute/EC2Instance.puml
+!include AWSPuml/ManagementGovernance/ControlTower.puml
+!include AWSPuml/ManagementGovernance/SystemsManager.puml
+!include AWSPuml/ManagementGovernance/CloudFormation.puml
+!include AWSPuml/ManagementGovernance/Config.puml
+!include AWSPuml/ManagementGovernance/CloudTrail.puml
+!include AWSPuml/Groups/Generic.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Administration Hub
+
+Person(admin, "Admin", "Manages platform configuration and infrastructure")
+
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(adminHub, "Administration Hub") {
+            Container_Boundary(configService, "Configuration Platform") {
+                AWSAccountGroup(configAcc,"Configuration Account") {
+                    EC2Instance(bastion, "Bastion Host", "EC2 Instance", "Secure access to private resources")
+                    ControlTower(controlTower, "AWS Control Tower", "AWS Control Tower", "Multi-account governance and landing zone management")
+                    SystemsManager(ssm, "AWS Systems Manager", "AWS Systems Manager", "Run commands, patching, and inventory")
+                    CloudFormation(cfn, "CloudFormation", "AWS CloudFormation", "Infrastructure as Code service")
+                    Config(config, "AWS Config", "AWS Config", "Tracks configuration changes and compliance")
+                }
+            }
+        }
+
+        ' Other platform components
+        System(payhub, "Payment Hub")
+        AWSAccountGroup(identity,"Identity and Security Account") {
+            Container(idP, "Identity Provider", "Security Hub", "Handles authentication and token verification")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+        }
+        System(monitoringHub, "Monitoring Hub")
+        System(reportingHub, "Reporting Hub")
+        System(integrationHub, "Integration Hub")
+    }
+}
+
+' Relationships
+Rel(configService, payhub, "Updates operational parameters", "Internal call")
+Rel(configService, secServices, "Triggers security-related config", "Internal call")
+Rel(configService, monitoringHub, "Updates alerting thresholds", "Internal call")
+Rel(configService, reportingHub, "Updates reporting filters", "Internal call")
+Rel(configService, integrationHub, "Manages integration setup", "Internal call")
+
+Rel(admin, bastion, "Secure access to private services", "SSH / Session Manager")
+Rel(admin, controlTower, "Manages accounts and landing zones", "Console/API")
+Rel(admin, ssm, "Executes commands and patching", "Console/API")
+Rel(admin, cfn, "Manages infrastructure templates", "Console/API")
+Rel(admin, config, "Reviews configuration compliance", "Console/API")
+
+Rel(admin, idP, "Get and validates credentials", "Console/API/OAuth2")
+
+SHOW_LEGEND()
+
+@enduml

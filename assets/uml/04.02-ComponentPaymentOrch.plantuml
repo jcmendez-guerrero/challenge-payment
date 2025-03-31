@@ -1,0 +1,161 @@
+@startuml 04-component-payment-orchestrator
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+
+!includeurl C4Puml/C4_Component.puml
+
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/PublicSubnet.puml
+!include AWSPuml/Groups/PrivateSubnet.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/SecurityIdentityCompliance/WAF.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/NetworkingContentDelivery/ElasticLoadBalancing.puml
+!include AWSPuml/Analytics/ManagedStreamingforApacheKafka.puml
+!include AWSPuml/ApplicationIntegration/SimpleQueueService.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/NetworkingContentDelivery/Route53.puml
+!include AWSPuml/NetworkingContentDelivery/VPCEndpoints.puml
+!include AWSPuml/NetworkingContentDelivery/PrivateLink.puml
+!include AWSPuml/NetworkingContentDelivery/VPCPeeringConnection.puml
+!include AWSPuml/NetworkingContentDelivery/CloudFront.puml
+!include AWSPuml/SecurityIdentityCompliance/Shield.puml
+!include AWSPuml/Storage/SimpleStorageServiceS3Standard.puml
+!include AWSPuml/Containers/Fargate.puml
+!include AWSPuml/Containers/ElasticContainerRegistry.puml
+!include AWSPuml/Containers/ElasticContainerService.puml
+!include AWSPuml/NetworkingContentDelivery/VPCNATGateway.puml
+!include AWSPuml/Containers/ElasticContainerServiceContainer1.puml
+
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Payment Orchestrator
+
+' External parties
+System_Ext(processor, "Payment Processor", "3rd-party system to execute payments", $sprite="payment")
+
+
+' Gateway boundary
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(integrationHub, "Integration Hub") {
+            Container(obService, "Open Banking Services", "Multiple", "Handles Open Banking Transactions")
+            Container(3rpGateway, "3rd Party Gateway", "APIGateway", "Connects to external 3rd party APIs")
+        }
+        System_Boundary(payhub, "Payment Hub") {
+            Container(apiGateway, "Payment API Gateway")
+            ContainerDb(paymentDb, "Payment Ledger & Data Manager", "Multiple", "Stores payment state and events. Handles data transformations and anonymization")
+            Container(riskService, "Risk Assessment Engine", "Multiple", "Evaluates fraud/risk score on payment requests")
+            ' Payment Orchestrator
+            Container_Boundary(paymentOrchestrator, "Payment Orchestrator") {
+                AWSAccountGroup(networking,"Networking Account") {
+                    RegionGroup(region, "Region (Replicated in2/3 Regions)") {
+                        VPCGroup(vpc, "Payment Integration VPC"){
+                            ElasticLoadBalancing(nlb, "Network Load Balancer", "AWS NLB", "Routes internal traffic to ECS")                            
+                        }
+                    }
+                    Route53(route53Int, "Route 53", "AWS Route 53", "DNS service")
+                }
+                AWSAccountGroup(payment2,"Payment Account") {
+                    RegionGroup(regionA, "Region (Replicated in2/3 Regions)") {
+                        VPCGroup(vpcA, "VPC") {
+                            PublicSubnetGroup(publicSubnetA, "Public Subnet") {
+                                VPCNATGateway(natA, "NAT Gateway", "Outbound traffic to financial providers")
+                            }
+
+
+                            ElasticContainerRegistry(ecrA, "ECR Images", "Container registry")
+                            ElasticContainerService(ecsA, "ECS Cluster", "Manages Fargate tasks")
+                            PrivateSubnetGroup(privateSubnetA, "Private Subnet") {
+                                Fargate(fargateA, "ECS Fargate Services", "Executes orchestrator components") {
+                                    ElasticContainerServiceContainer1(validate, "Validation Service", "Container", "Performs business rule validations")
+                                    ElasticContainerServiceContainer1(authz, "Authorization Engine", "Container", "Verifies if payment can proceed")
+                                    ElasticContainerServiceContainer1(settle, "Payment Settler", "Container", "Executes payment settlement")
+                                    ElasticContainerServiceContainer1(risk, "Risk Assessment", "Container", "Calculates fraud and risk scores")
+                                    ElasticContainerServiceContainer1(realtime, "Real-time Executor", "Container", "Processes low-latency payments")
+                                    ElasticContainerServiceContainer1(asyncExec, "Async Executor", "Container", "Processes async settlement flows")
+                                    ElasticContainerServiceContainer1(netSelector, "Network Selector", "Container", "Selects NAT path and provider")
+                                    ElasticContainerServiceContainer1(errorHandler, "Error Handler", "Container", "Handles payment failures and retries")
+                                    ElasticContainerServiceContainer1(othercontainer, "Other Container", "Container", "Handles other business logic")
+                                    ElasticContainerServiceContainer1(readPayment, "Read Payment", "Container", "Handles read operations")
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        AWSAccountGroup(identity,"Identity and Security Account") {
+            Container(idP, "Identity Provider", "Security Hub", "Handles authentication and token verification")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+
+        }
+
+    }
+}
+
+AddRelTag("VPeer", $textColor="purple", $lineColor="purple", $legendText="VPC Internal Traffic Connection", $sprite="VPCPeeringConnection")
+AddRelTag("Plink", $textColor="purple", $lineColor="purple", $legendText="Private Link Connection", $sprite="PrivateLink")
+
+
+
+' Relationships
+
+Rel_U(realtime, apiGateway, "Subscribes to payment events / Processes async requests", "Kafka Consumer  Subscription / SQS Pull")
+Rel_U(asyncExec, apiGateway, "Subscribes to payment events / Processes async requests", "Kafka Consumer  Subscription / SQS Pull")
+
+
+' Relationships
+Rel(route53Int, nlb, "Resolves service endpoints")
+
+' ECS services usage
+Rel(nlb, readPayment, "Routes requests to orchestrator containers")
+
+Rel_D(fargateA, ecsA,"")
+Rel_R(ecsA, ecrA,"")
+
+
+' Identity interaction
+Rel(fargateA, idP, "Validates token and scopes or APi Payment Cryptographic Services", "mTLS")
+Rel(fargateA, secServices, "Handles encryption, key management", "mTLS")
+
+' External initiation via NAT
+Rel(netSelector, natA, "Selects NAT for outbound path")
+Rel(natA, processor, "Initiates payment with third-party")
+Rel(natA, obService, "Initiates payment with third-party")
+
+' Region sync/replication
+
+Rel(realtime, authz , "Triggers payment auth")
+Rel(asyncExec, authz , "Triggers payment auth")
+Rel(asyncExec, settle , "Triggers payment settlement")
+Rel(realtime, settle , "Triggers payment settlement")
+BiRel(authz, netSelector , "Triggers payment auth")
+
+Rel(asyncExec, validate , "Triggers payment validation")
+Rel(validate, authz , "Triggers payment auth")
+Rel(validate, risk , "Triggers payment risk assessment")
+BiRel(risk, riskService , "Triggers risk assessment request and receive response")
+Rel(validate, netSelector , "Triggers payment network selection")
+Rel(apiGateway,route53Int, "Gets DNS for Fargate services (read Operation)")
+Rel(3rpGateway, route53Int, "Gets DNS for Fargate services (read Operation)")
+Rel(readPayment, paymentDb, "Reads payment state")
+Rel(settle, paymentDb, "Saves payment state")
+
+
+SHOW_LEGEND()
+
+
+@enduml

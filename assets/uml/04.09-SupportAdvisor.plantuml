@@ -1,0 +1,106 @@
+@startuml 04-component-support-advisor
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+
+!includeurl C4Puml/C4_Component.puml
+
+!include AWSPuml/AWSCommon.puml
+
+!include AWSPuml/ArtificialIntelligence/Lex.puml
+!include AWSPuml/ArtificialIntelligence/Kendra.puml
+!include AWSPuml/ArtificialIntelligence/SageMaker.puml
+!include AWSPuml/ArtificialIntelligence/Bedrock.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/Database/DynamoDB.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/Generic.puml
+!include AWSPuml/Groups/PublicSubnet.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/ManagementGovernance/CloudTrail.puml
+!include AWSPuml/ManagementGovernance/CloudWatch.puml
+!include AWSPuml/ManagementGovernance/CloudWatchEventEventBased.puml
+!include AWSPuml/ManagementGovernance/CloudWatchLogs.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/NetworkingContentDelivery/CloudFront.puml
+!include AWSPuml/NetworkingContentDelivery/ElasticLoadBalancing.puml
+!include AWSPuml/NetworkingContentDelivery/PrivateLink.puml
+!include AWSPuml/NetworkingContentDelivery/Route53.puml
+!include AWSPuml/NetworkingContentDelivery/SitetoSiteVPN.puml
+!include AWSPuml/NetworkingContentDelivery/VPCFlowLogs.puml
+!include AWSPuml/NetworkingContentDelivery/VPCEndpoints.puml
+!include AWSPuml/NetworkingContentDelivery/VPCPeeringConnection.puml
+!include AWSPuml/Storage/SimpleStorageServiceS3Standard.puml
+!include AWSPuml/NetworkingContentDelivery/ClientVPN.puml
+
+
+
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+!include ICONURL/font-awesome/cloud.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Support Advisor
+
+' Actors
+Person(support, "Support Agent", "Handles disputes and monitors flows")
+
+System_Ext(internet, "Internet", $sprite="cloud")
+
+' Gateway boundary
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(monitorhub, "Monitoring & Alerting") {
+            Container(alertService, "Alert and Logging Engine", "Multiple", "Generates alerts on failures, fraud, anomalies & Centralized logging for all services")
+            Container_Boundary(alertEngine, "Support Advisor") {
+                AWSAccountGroup(monitorAcc,"Monitoring and Alerting Account") {
+                    RegionGroup(region, "Region (Replicated in2/3 Regions)") {
+                        Lex(lex, "Amazon Lex", "Amazon Lex", "Handles conversational chat flow for support agents")
+                        Lambda(lambda, "Support Logic Lambda", "AWS Lambda", "Handles logic to retrieve historical data and generate answers")
+                        DynamoDB(dynamo, "Historical Data", "Amazon DynamoDB", "Stores historical context and support data")
+                        Kendra(kendra, "Amazon Kendra", "Amazon Kendra", "Searches for documentation and FAQs")
+                        SageMaker(sagemaker, "SageMaker Model", "Amazon SageMaker", "Generates responses using ML models")
+                        SimpleStorageServiceS3Standard(sLog, "S3 Document Storage", "Amazon S3", "Stores documentation and FAQs")
+                    }
+                    Bedrock(bedrock, "Amazon Bedrock", "Amazon Bedrock", "Generates code-based responses")
+
+                }
+            }
+        }
+        AWSAccountGroup(identity,"Identity and Security Account") {
+            Container(idP, "Identity Provider", "Security Hub", "Handles authentication and token verification")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+        }
+    }
+}
+
+AddRelTag("VPeer", $textColor="purple", $lineColor="purple", $legendText="VPC Internal Traffic Connection", $sprite="VPCPeeringConnection")
+AddRelTag("Plink", $textColor="purple", $lineColor="purple", $legendText="Private Link Connection", $sprite="PrivateLink")
+AddRelTag("VPN", $sprite="SitetoSiteVPN", $legendText="Site2Site VPN Connection")
+AddRelTag("InternalVPN", $sprite="ClientVPN", $legendText="Internal VPN Connection")
+
+
+' Relationships
+' Relationships
+Rel(support, lex, "Connects via VPN", "HTTPS (VPN)", $sprite="InternalVPN")
+Rel(lex, lambda, "Triggers logic execution", "JSON")
+Rel(lambda, dynamo, "Fetches historical support data and memory", "DynamoDB query")
+Rel(lambda, kendra, "Searches for documentation", "Kendra query")
+Rel(kendra, sLog, "Fetches documentation or FAQ from S3", "S3 data fetch")
+Rel(lambda, sagemaker, "Uses SageMaker for response generation", "Model request")
+Rel(lambda, bedrock, "Uses Bedrock to generate code-based responses", "ML request")
+Rel_L(kendra, internet, "Queries external resources when necessary", "HTTP request")
+Rel(lambda, idP, "Validates agent authentication", "OAuth2")
+Rel(lambda, alertService, "Get Alerts Context", "JSON")
+
+SHOW_LEGEND()
+
+@enduml
+

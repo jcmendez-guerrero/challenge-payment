@@ -1,0 +1,22 @@
+docs:
+
+- title: Home
+  url: /index.html
+- title: Executive Summary
+  url: /README.html
+- title: Introduction and Goals
+  url: /01-introduction-and-goals.html
+- title: Technical Constraints
+  url: /02-technical-constraints.html
+- title: System Context and Scope
+  url: /03-system-context-and-scope.html
+- title: Building Block View
+  url: /04-building-block-view.html
+- title: Runtime Overview
+  url: /05-RuntimeOverview.html
+- title: Design Decisions
+  url: /06-design-decisions.html
+- title: Technical Risks
+  url: /07-technical-risks.html
+- title: Results
+  url: /08-Results.html

@@ -1,0 +1,64 @@
+@startuml 04-component-identity-provider
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+!includeurl C4Puml/C4_Component.puml
+
+' AWS Icons
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/SecurityIdentityCompliance/Cognito.puml
+!include AWSPuml/SecurityIdentityCompliance/IAMIdentityCenter.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Identity Provider
+
+' Actors
+Person(customer, "Customer", "Authenticates to initiate payments")
+Person(merchant, "Merchant", "Authenticates to access transaction dashboard")
+Person(admin, "Admin", "Authenticates to manage system configuration")
+Person(integrator, "Integrator", "Authenticates to use 3rd party APIs")
+Person(support, "Support Agent", "Authenticates to access support tools")
+
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(identityHub, "Identity & Security Hub") {
+        AWSAccountGroup(identityAcc, "Identity & Security Account") {
+            Cognito(cognitoUserPool, "Amazon Cognito User Pools", "Handles user authentication (SAML, OIDC, Social)")
+            Cognito(cognitoIdentityPool, "Amazon Cognito Identity Pools", "Grants AWS credentials after authentication")
+            IAMIdentityCenter(iam, "AWS IAM Identity Center", "Manages roles and policies for authenticated users")
+        }
+    }
+
+    ' Example platform systems that rely on authentication
+    System(paymentAPI, "Payment API Gateway", "Handles payments and refunds")
+    System(adminConsole, "Admin Console", "Manages configuration")
+    System(obGateway, "Open Banking Gateway", "Manages bank account connection")
+    System(analytics, "Analytics Platform", "Dashboard and data access")
+    System(supportAdvisor, "Support Advisor", "Support agents query alert resolution steps")
+}
+
+System_Ext(SocialLogin, "Social Login", "External social login providers (Google, Facebook)")
+
+' Authentication flows
+Rel(customer, cognitoUserPool, "Authenticates (OAuth2 / SAML / OIDC / Social)")
+Rel(merchant, cognitoUserPool, "Authenticates (OAuth2 / SAML / OIDC / Social)")
+Rel(admin, cognitoUserPool, "Authenticates (OAuth2 / SAML / OIDC / Social)")
+Rel(integrator, cognitoUserPool, "Authenticates (OAuth2 / SAML / OIDC / Social)")
+Rel(support, cognitoUserPool, "Authenticates (OAuth2 / SAML / OIDC / Social)")
+
+Rel(cognitoUserPool, cognitoIdentityPool, "Maps user identity to AWS credentials")
+BiRel_L(cognitoUserPool, SocialLogin, "Authenticates via social login")
+Rel_R(cognitoIdentityPool, iam, "Assumes roles / Gets temporary credentials")
+
+Rel_U(iam, paymentAPI, "Grants scoped access to payment APIs")
+Rel_U(iam, adminConsole, "Grants admin-level access")
+Rel_U(iam, obGateway, "Authorizes banking APIs")
+Rel_U(iam, analytics, "Provides data access tokens")
+Rel_U(iam, supportAdvisor, "Allows support access")
+
+SHOW_LEGEND()
+
+@enduml

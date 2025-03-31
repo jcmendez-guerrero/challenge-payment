@@ -1,0 +1,138 @@
+@startuml 04-component-alert-engine
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+
+!includeurl C4Puml/C4_Component.puml
+
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Analytics/DataFirehose.puml
+!include AWSPuml/Analytics/KinesisDataStreams.puml
+!include AWSPuml/ApplicationIntegration/EventBridge.puml
+!include AWSPuml/ApplicationIntegration/SimpleNotificationService.puml
+!include AWSPuml/ApplicationIntegration/SimpleQueueService.puml
+!include AWSPuml/BusinessApplications/SimpleEmailService.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/Generic.puml
+!include AWSPuml/Groups/PublicSubnet.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/ManagementGovernance/CloudTrail.puml
+!include AWSPuml/ManagementGovernance/CloudWatch.puml
+!include AWSPuml/ManagementGovernance/CloudWatchEventEventBased.puml
+!include AWSPuml/ManagementGovernance/CloudWatchLogs.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/NetworkingContentDelivery/CloudFront.puml
+!include AWSPuml/NetworkingContentDelivery/ElasticLoadBalancing.puml
+!include AWSPuml/NetworkingContentDelivery/PrivateLink.puml
+!include AWSPuml/NetworkingContentDelivery/Route53.puml
+!include AWSPuml/NetworkingContentDelivery/SitetoSiteVPN.puml
+!include AWSPuml/NetworkingContentDelivery/VPCFlowLogs.puml
+!include AWSPuml/NetworkingContentDelivery/VPCEndpoints.puml
+!include AWSPuml/NetworkingContentDelivery/VPCPeeringConnection.puml
+!include AWSPuml/SecurityIdentityCompliance/Shield.puml
+!include AWSPuml/SecurityIdentityCompliance/WAF.puml
+!include AWSPuml/Storage/SimpleStorageServiceS3Standard.puml
+!include AWSPuml/NetworkingContentDelivery/ClientVPN.puml
+
+
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Alert & Logging Engine
+
+' External tools
+System_Ext(datadog, "External Monitoring Platform", "External monitoring and alerting system", $sprite="img:https://static-00.iconduck.com/assets.00/datadog-icon-478x512-0oveejzz.png{scale=0.1}")
+
+' Actors
+Person(support, "Support Agent", "Handles disputes and monitors flows")
+Person(compliance, "Compliance Officer", "Monitors regulatory compliance and reviews alerts")
+
+' Gateway boundary
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(monitorhub, "Monitoring & Alerting") {
+            Container(SupportAdvisor, "Support Advisor", "Multiple", "Provides support agents with insights and alerts based on documentation")
+            Container_Boundary(alertEngine, "Alert and Logging Engine") {
+                AWSAccountGroup(monitorAcc,"Monitoring and Alerting Account") {
+                    RegionGroup(region, "Region (Replicated in2/3 Regions)") {
+                        CloudWatch(cloudwatch, "AWS CloudWatch", "Monitors logs, metrics and alarms")
+                        Lambda(processor, "Alert Processor", "Lambda", "Processes alarm events and triggers notifications")
+                        SimpleNotificationService(sns, "SNS Notifications", "Amazon SNS", "Routes alerts to topics or external systems")
+                        SimpleEmailService(ses, "Email Notifier", "Amazon SES", "Sends alert emails to support or stakeholders")
+                        SimpleStorageServiceS3Standard(sLog, "S3 Logging Intelligent Tiering Store", "Amazon S3", "Stores logs for analysis")
+                        SimpleStorageServiceS3Standard(sLogOther, "S3 Other Logging Store", "Amazon S3", "Stores logs for analysis")
+                        DataFirehose(dataFirehose, "Data Firehose", "AWS Data Firehose", "Streams data to S3 or other services")
+                        KinesisDataStreams(kinesis, "Kinesis Stream", "AWS Kinesis Data Stream", "Handles real-time data streams")
+                    }
+                }
+            }
+        }
+        AWSAccountGroup(identity,"Identity and Security Account") {
+            Container(idP, "Identity Provider", "Security Hub", "Handles authentication and token verification")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+            GenericGroup(cloudwatchorigin, "CloudWatch Sources") {
+                CloudWatchLogs(cloudwatchLogs, "CloudWatch Logs", "AWS CloudWatch Logs", "Stores and analyzes log data")
+                VPCFlowLogs(vpcFlowLogs, "VPC Flow Logs", "AWS VPC Flow Logs", "Captures network traffic data")
+                CloudWatchEventEventBased(cloudwatchEvents, "CloudWatch Events", "AWS CloudWatch Events", "Triggers events based on alarms or changes")
+                EventBridge(eventBridge, "EventBridge", "AWS EventBridge", "Routes events from AWS services and custom applications")
+            }
+            GenericGroup(otherSources, "Other Sources") {
+                CloudTrail(cloudtrail, "AWS CloudTrail", "Tracks API calls and changes in AWS resources")
+            }
+        }
+        AWSAccountGroup(otherAccounts, "Other Accounts Hub") {
+            GenericGroup(cloudwatchoriginother, "CloudWatch Sources") {
+                CloudWatchLogs(cloudwatchLogsother, "CloudWatch Logs", "AWS CloudWatch Logs", "Stores and analyzes log data")
+                VPCFlowLogs(vpcFlowLogsother, "VPC Flow Logs", "AWS VPC Flow Logs", "Captures network traffic data")
+                CloudWatchEventEventBased(cloudwatchEventsother, "CloudWatch Events", "AWS CloudWatch Events", "Triggers events based on alarms or changes")
+                EventBridge(eventBridgeother, "EventBridge", "AWS EventBridge", "Routes events from AWS services and custom applications")
+            }
+            GenericGroup(otherSourcesother, "Other Sources") {
+                CloudTrail(cloudtrailother, "AWS CloudTrail", "Tracks API calls and changes in AWS resources")
+            }
+        }
+    }
+}
+
+AddRelTag("VPeer", $textColor="purple", $lineColor="purple", $legendText="VPC Internal Traffic Connection", $sprite="VPCPeeringConnection")
+AddRelTag("Plink", $textColor="purple", $lineColor="purple", $legendText="Private Link Connection", $sprite="PrivateLink")
+AddRelTag("VPN", $sprite="SitetoSiteVPN", $legendText="Site2Site VPN Connection")
+AddRelTag("InternalVPN", $sprite="ClientVPN", $legendText="Internal VPN Connection")
+
+
+' Relationships
+Rel_R(cloudwatchoriginother, cloudwatch, "Sends logs/metrics", "HTTPS")
+Rel(cloudwatchorigin, cloudwatch, "Sends logs/metrics", "HTTPS")
+Rel(otherSourcesother, sLogOther, "Sends logs/metrics", "HTTPS")
+Rel(otherSources, sLogOther, "Sends logs/metrics", "HTTPS")
+Rel(sLogOther, cloudwatch, "Reads logs/metrics", "HTTPS")
+Rel(cloudwatch, kinesis, "Sends logs/metrics")
+Rel(kinesis, dataFirehose, "Send to Transform")
+Rel(dataFirehose, sLog, "Send to S3")
+Rel(cloudwatch, processor, "Triggers alarm events")
+Rel(processor, sns, "Publishes structured alerts")
+Rel(sns, ses, "Triggers email notifications")
+Rel_L(datadog, cloudwatch, "\n Gets alerts", "HTTPS", $tags="VPN")
+Rel_R(sns, datadog, "\n Sends alerts to external monitoring", "mTLS", $tags="VPN")
+Rel_L(SupportAdvisor, sLog, "Reads alert/loggins stream for context")
+Rel(cloudwatch,secServices, "Sends security logs/metrics", "HTTPS")
+
+Rel(ses,compliance, "Sends email notifications", "Email")
+Rel(support, cloudwatch, "\n Reads logs/metrics", "HTTPS (VPN)", $tags="InternalVPN")
+
+Lay_D(otherAccounts,identity)
+Lay_D(otherSources,idP)
+Lay_D(idP,secServices)
+
+SHOW_LEGEND()
+
+@enduml

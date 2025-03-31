@@ -1,0 +1,136 @@
+@startuml 04-component-payment-api
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+
+!includeurl C4Puml/C4_Component.puml
+
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/PublicSubnet.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/SecurityIdentityCompliance/WAF.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/NetworkingContentDelivery/ElasticLoadBalancing.puml
+!include AWSPuml/Analytics/ManagedStreamingforApacheKafka.puml
+!include AWSPuml/ApplicationIntegration/SimpleQueueService.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/NetworkingContentDelivery/Route53.puml
+!include AWSPuml/NetworkingContentDelivery/VPCEndpoints.puml
+!include AWSPuml/NetworkingContentDelivery/PrivateLink.puml
+!include AWSPuml/NetworkingContentDelivery/VPCPeeringConnection.puml
+!include AWSPuml/NetworkingContentDelivery/CloudFront.puml
+!include AWSPuml/SecurityIdentityCompliance/Shield.puml
+!include AWSPuml/Storage/SimpleStorageServiceS3Standard.puml
+
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Payment API Gateway
+
+' External actors
+Person(customer, "Customer", "Initiates and checks payment requests")
+Person(merchant, "Merchant", "Receives payments and initiates refunds")
+
+
+
+' Gateway boundary
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(payhub, "Payment Hub") {
+
+            Container_Boundary(apiGateway, "Payment API Gateway") {
+                AWSAccountGroup(networking,"Networking Account") {
+                    RegionGroup(region, "Region (Replicated in2/3 Regions)") {
+                        APIGateway(api, "API Gateway", "Amazon API Gateway", "Handles REST API routing and throttling")
+                        APIGateway(authzapi,"Authentication API Gateway", "Amazon API Gateway", "Handled Authentication (JWT token Adquire)")
+                        VPCGroup(vpc, "Payment Integration VPC"){
+                            ElasticLoadBalancing(nlb, "Network Load Balancer", "AWS NLB", "Routes internal traffic to Lambda or ECS")
+                            VPCEndpoints(endpoints, "VPC Endpoints", "AWS VPC Endpoints", "Private endpoints for SQS and Kafka or other services")
+                        }
+                        VPCGroup(staticContent, "Public VPC Static Content"){
+                            CloudFront(cloudfront, "CloudFront", "AWS CloudFront", "Content delivery network for static content")
+                            SimpleStorageServiceS3Standard(s3, "Static Content", "AWS S3", "Stores static content for API Gateway")
+                        }
+                    }
+                    Route53(route53, "Route 53", "AWS Route 53", "DNS service for API Gateway")
+                    WAF(waf, "Web Application Firewall", "AWS WAF", "Protects APIs from malicious requests")
+                    Shield(shield, "DDoS Protection", "AWS Shield", "Protects against DDoS attacks")
+
+                }
+                AWSAccountGroup(payment,"Payment Account") {
+                    RegionGroup(regionA, "Region A") { 
+                        VPCGroup(vpcQueueA, "Queue VPC"){
+                            ManagedStreamingforApacheKafka(kafkaPub, "Queue", "MSK Client", "Publishes payment events to Kafka topics")
+                            SimpleQueueService(queue, "Asynchronous Request Queue", "SQS", "Queues requests for async processing")
+                            Lambda(syncer, "Syncer", "Lambda", "Sync queue between 2 regions")
+ 
+                        }
+                    }
+                    RegionGroup(regionB, "Region B") { 
+                        VPCGroup(vpcQueueB, "Queue VPC"){
+                            ManagedStreamingforApacheKafka(kafkaPubB, "Queue", "MSK Client", "Publishes payment events to Kafka topics")
+                            SimpleQueueService(queueB, "Asynchronous Request Queue", "SQS", "Queues requests for async processing")
+                        }
+                    }        
+                }
+            }
+            ' Payment Orchestrator
+            Container(paymentOrchestrator, "Payment Orchestrator", "Orchestration Core", "Handles payment lifecycle")
+        }
+        AWSAccountGroup(identity,"Identity and Security Account") {
+            Container(idP, "Identity Provider", "Security Hub", "Handles authentication and token verification")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+
+        }
+
+    }
+}
+
+AddRelTag("VPeer", $textColor="purple", $lineColor="purple", $legendText="VPC Internal Traffic Connection", $sprite="VPCPeeringConnection")
+AddRelTag("Plink", $textColor="purple", $lineColor="purple", $legendText="Private Link Connection", $sprite="PrivateLink")
+
+
+
+' Relationships
+Rel_L(waf, route53, "Inspects and Verifies requests", "HTTPS")
+Rel_R(shield, route53, "Inspects and Verifies requests", "HTTPS")
+Rel(api, idP, "Passes token for validation, Validates token & scopes", "OAuth2/OpenID Connect")
+Rel(authzapi, idP, "Request Token", "OAuth2/OpenID Connect")
+Rel(idP, authzapi, "Returns claims/context")
+Rel(api, nlb, "Routes internal requests", "HTTPS")
+Rel_U(paymentOrchestrator, kafkaPub, "Subscribes to payment events", "Kafka Consumer Subscription")
+Rel_U(paymentOrchestrator, queue, "Processes async requests", "SQS Pull")
+Rel_U(paymentOrchestrator, kafkaPubB, "Subscribes to payment events", "Kafka Consumer Subscription")
+Rel_U(paymentOrchestrator, queueB, "Processes async requests", "SQS Pull")
+Rel(endpoints, vpcQueueA, "Publishes/Sends Events", "Kafka/SQS",$tags="PLink")
+Rel(nlb, endpoints, "Routes internal traffic to Other Services", "HTTPS")
+Rel(endpoints, vpcQueueB, "Publishes/Sends Events", "Kafka/SQS",$tags="PLink")
+
+Rel(vpcQueueA, vpcQueueB, "Peering", $tags="VPeer")
+
+
+Rel(syncer, queue, "Syncs queue between regions", "SQS Pull/Push")
+Rel(syncer, kafkaPub, "Syncs Kafka topics between regions", "Kafka Consumer/Producer")
+Rel(syncer, queueB, "Syncs queue between regions", "SQS Pull/Push")
+Rel(syncer, kafkaPubB, "Syncs Kafka topics between regions", "Kafka Consumer/Producer")
+
+Rel(customer, route53, "Resolves DNS for API Gateways and Communicates", "TCP/IP DNS / HTTPS")
+Rel(merchant, route53, "Resolves DNS for API Gateways and Communicates", "TCP/IP DNS / HTTPS")
+Rel(route53, authzapi, "Authenticates and authorizes requests", "HTTPS")
+Rel(route53, api, "Manages refunds, views transactions", "HTTPS")
+Rel(route53, cloudfront, "Delivers static content", "HTTPS")
+Rel_D(cloudfront, s3, "Fetches static content", "HTTPS")
+
+
+SHOW_LEGEND()
+
+@enduml

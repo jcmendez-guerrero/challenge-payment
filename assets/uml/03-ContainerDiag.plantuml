@@ -1,0 +1,143 @@
+@startuml 03-container-diagram
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+
+' Global C4 Definition
+' !include C4Puml/C4.puml
+!includeurl C4Puml/C4_Container.puml
+
+' AWS Sprites
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+' !include AWSPuml/Compute/Lambda.puml
+' !include AWSPuml/ApplicationIntegration/EventBridge.puml
+' !include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+' !include AWSPuml/Database/DynamoDB.puml
+' !include AWSPuml/ApplicationIntegration/StepFunctions.puml
+' !include AWSPuml/Groups/PublicSubnet.puml
+
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+
+LAYOUT_TOP_DOWN()
+title Container Diagram - High-Volume Payment Processing Platform
+
+'  Actors
+Person(customer, "Customer", "Uses the platform to make payments and track status")
+Person(merchant, "Merchant", "Receives payments and initiates refunds")
+Person_Ext(integrator, "Integrator", "External system that integrates via APIs")
+Person(compliance, "Compliance Officer", "Monitors regulatory compliance and reviews alerts")
+Person(support, "Support Agent", "Handles disputes and monitors flows")
+Person(admin, "Admin", "Configures platform rules, roles, and settings")
+Person(reporting, "Reporting User", "Accesses reporting and transaction insights")
+
+
+' External Systems
+System_Ext(financial, "Financial Institution", "Bank or provider for Open Banking and settlements", $sprite="bank")
+System_Ext(processor, "Payment Processor", "3rd-party system to execute payments", $sprite="payment")
+System_Ext(monitor, "External Monitoring Platform", "External monitoring and alerting system", $sprite="img:https://static-00.iconduck.com/assets.00/datadog-icon-478x512-0oveejzz.png{scale=0.1}")
+
+
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+
+        System_Boundary(payhub, "Payment Hub") {
+            Container(api, "Payment API Gateway", "API Gateway", "Exposes REST endpoints for payments")
+            Container(paymentOrchestrator, "Payment Orchestrator", "Multiple", "Coordinates payment flows: validate, authorize, settle")
+            ContainerDb(paymentDb, "Payment Ledger & Data Manager", "Multiple", "Stores payment state and events. Handles data transformations and anonymization")
+            Container(riskService, "Risk Assessment Engine", "Multiple", "Evaluates fraud/risk score on payment requests")
+        }
+
+        System_Boundary(integrationHub, "Integration Hub") {
+            Container(obGateway, "Open Banking Gateway", "APIGateway", "Connects to external bank APIs using Open Banking protocols")
+            Container(obService, "Open Banking Services", "Multiple", "Handles Open Banking Transactions")
+            Container(3rpGateway, "3rd Party Gateway", "APIGateway", "Connects to external 3rd party APIs")
+        }
+
+        System_Boundary(monitoring, "Monitoring & Alerting") {
+            Container(alertService, "Alert and Logging Engine", "Multiple", "Generates alerts on failures, fraud, anomalies & Centralized logging for all services")
+            Container(SupportAdvisor, "Support Advisor", "Multiple", "Provides support agents with insights and alerts based on documentation")
+        }
+
+        System_Boundary(reportinghub, "Reporting Hub") {
+            Container(analytics, "Analytics Engine", "Multiple", "Processes and analyzes payment data")
+        }
+
+        System_Boundary(adminhub, "Administration Hub") {
+            Container(configService, "Configuration Platform", "Multiple", "All services that support the administration of the platform")
+        }
+
+        System_Boundary(security, "Security Hub") {
+            Container(idP, "Identity Provider", "Multiple", "Manages user identities and authentication. (It is assumed that Actors authenticate and the components validate the tokens)")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+        }
+    }
+
+    System_Ext(bi, "Business Intelligence Platform", "Consumes anonymized data for reporting", $sprite="robot")
+
+}
+
+AddRelTag("Payment", $textColor="blue", $lineColor="blue", $legendText="Payment")
+AddRelTag("Integration", $textColor="red", $lineColor="red", $legendText="Inegration")
+AddRelTag("Reporting", $textColor="purple", $lineColor="purple", $legendText="Reporting")
+AddRelTag("Monitoring", $textColor="DarkGoldenRod", $lineColor="DarkGoldenRod", $legendText="Monitoring and Alerting")
+AddRelTag("Administration", $textColor="green", $lineColor="green", $legendText="Admin")
+AddRelTag("Security", $textColor="orange", $lineColor="orange", $legendText="Security")
+
+' Customer interactions
+Rel(customer, api, "Initiates payments, checks status", "HTTPS/JSON","","", "Payment")
+Rel(merchant, api, "Manages refunds, views transactions", "HTTPS/JSON","","", "Payment")
+Rel(integrator, 3rpGateway, "Initiates payments", "REST API","","", "Integration")
+
+' Payment flow
+Rel(api, paymentOrchestrator, "Triggers payment orchestration/Read", "Async/Event","","", "Payment")
+Rel(3rpGateway, paymentOrchestrator, "Triggers payment orchestration", "Async/Event","","", "Payment")
+Rel(paymentOrchestrator, paymentDb, "Stores and updates payment state", "DynamoDB SDK","","", "Payment")
+Rel(paymentOrchestrator, riskService, "Evaluates risk/fraud score", "Internal call","","","", "Payment")
+Rel(paymentOrchestrator, processor, "Executes payment through 3rd-party processor", "HTTPS/REST","","", "Payment")
+BiRel(paymentOrchestrator, obService, "Initiates Open Banking payment", "REST/HTTPS","","", "Payment")
+
+' Risk & data management
+Rel(riskService, paymentDb, "Reads historical data for scoring", "DynamoDB","","", "Payment")
+Rel(paymentDb, analytics, "Streams anonymized data", "Event","","", "Reporting")
+
+' Monitoring & alerting
+Rel_L(alertService, monitor, "Sends alerts and notifications/ Streams logs and metrics", "Webhook/Notification/API/Collector", "", "", "Monitoring")
+Rel_L(analytics, monitor, "Streams anonymized data", "API/Collector", "", "", "Monitoring")
+
+Rel(SupportAdvisor, alertService, "Reads logs, alerts and traces", "Query/API", "", "", "Monitoring")
+Rel(support, SupportAdvisor, "Views alert context and logs", "Browser/SPA", "", "", "Monitoring")
+Rel(alertService, compliance, "Send Fraud alerts", "Email/Notification", "", "", "Monitoring")
+
+' Reporting
+Rel(reporting, analytics, "Requests reports and metrics", "HTTPS/JSON", "", "", "Reporting")
+Rel(analytics, bi, "Publishes processed data", "S3/Kinesis", "", "", "Reporting")
+Rel_U(compliance, analytics, "Reviews reports and metrics", "Browser/SPA", "", "", "Reporting")
+
+' Admin & configuration
+Rel(admin, configService, "Accesses admin UI", "Browser/SPA/SSH/HTTPS", "", "", "Administration")
+
+' Security
+
+Rel(admin, secServices, "Manages security services", "Internal API", "", "", "Security")
+Rel(idP, secServices, "Manages tokens and keys", "KMS/Internal API", "", "", "Security")
+
+' External integrations
+Rel(obService, financial, "Initiates and confirms Open Banking transactions", "PSD2 API", "", "", "Integration")
+Rel(financial, obGateway, "Cross Banking API", "Bank API", "", "", "Integration")
+Rel(paymentOrchestrator, financial, "Confirms payment settlement", "Bank API", "", "", "Payment")
+
+Rel_R(obGateway, obService, "Handles Open Banking transactions", "REST API", "", "", "Integration")
+
+
+
+SHOW_LEGEND()
+
+@enduml

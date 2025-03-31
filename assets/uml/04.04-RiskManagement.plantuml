@@ -1,0 +1,125 @@
+@startuml 04-component-risk-Assessment
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+
+!includeurl C4Puml/C4_Component.puml
+
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/PublicSubnet.puml
+!include AWSPuml/Groups/PrivateSubnet.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/SecurityIdentityCompliance/WAF.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/NetworkingContentDelivery/ElasticLoadBalancing.puml
+!include AWSPuml/Analytics/ManagedStreamingforApacheKafka.puml
+!include AWSPuml/ApplicationIntegration/SimpleQueueService.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/NetworkingContentDelivery/Route53.puml
+!include AWSPuml/NetworkingContentDelivery/VPCEndpoints.puml
+!include AWSPuml/NetworkingContentDelivery/PrivateLink.puml
+!include AWSPuml/NetworkingContentDelivery/VPCPeeringConnection.puml
+!include AWSPuml/NetworkingContentDelivery/CloudFront.puml
+!include AWSPuml/SecurityIdentityCompliance/Shield.puml
+!include AWSPuml/Storage/SimpleStorageServiceS3Standard.puml
+!include AWSPuml/Analytics/DataFirehose.puml
+!include AWSPuml/Analytics/KinesisDataStreams.puml
+!include AWSPuml/Analytics/Athena.puml
+!include AWSPuml/ApplicationIntegration/SimpleNotificationService.puml
+!include AWSPuml/ApplicationIntegration/EventBridge.puml
+!include AWSPuml/ArtificialIntelligence/FraudDetector.puml
+!include AWSPuml/ArtificialIntelligence/SageMaker.puml
+!include AWSPuml/ApplicationIntegration/StepFunctions.puml
+
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Risk Assessment Engine
+
+
+' Gateway boundary
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(payhub, "Payment Hub") {
+            Container(paymentOrchestrator, "Payment Orchestrator", "Multiple", "Coordinates payment flows: validate, authorize, settle")
+            ContainerDb(paymentDb, "Payment Ledger & Data Manager", "Multiple", "Stores payment state and events. Handles data transformations and anonymization")
+            ' Payment Orchestrator
+            Container_Boundary(riskService, "Risk Assessment Engine") {
+                AWSAccountGroup(networking,"Networking Account") {
+                    RegionGroup(regionA, "Region (Replicated in 2/3 Regions)") {
+                        Route53(route53Int, "Route 53 Internal", "AWS Route 53", "DNS service")
+                    }
+                }
+                AWSAccountGroup(payment2,"Payment Account") {
+                    RegionGroup(regionPay, "Region (Replicated in2/3 Regions)") {
+                        VPCGroup(vpcA, "VPC") {
+                            PrivateSubnetGroup(privateSubnetA, "Private Subnet") {
+                                APIGateway(api, "API Gateway", "Amazon API Gateway", "Handles REST API routing and throttling")
+
+                                KinesisDataStreams(kinesis, "Kinesis Stream", "AWS Kinesis", "Receives transaction events for analysis")
+                                Lambda(consumerLambda, "Transaction Processor", "AWS Lambda", "Consumes stream data and invokes analysis flow")
+                                Lambda(trainingLambda, "Model Training Lambda", "AWS Lambda", "Triggers model training and evaluation")
+
+                                StepFunctions(stepFunction, "Risk Decision Flow", "AWS Step Functions", "Coordinates validation and scoring to accept/reject")
+                                SimpleNotificationService(sns, "Fraud Alert SNS", "Amazon SNS", "Sends fraud rejection or alert notifications")
+                                SimpleStorageServiceS3Standard(s3Hot, "S3 Fraud Hot Storage", "Amazon S3", "Stores fraud related data for analysis and the final prediction model")
+                                SimpleStorageServiceS3Standard(s3HotTraining, "S3 Training Hot Storage", "Amazon S3", "Stores fraud training data model")
+
+                                FraudDetector(fraudDetector, "Amazon Fraud Detector", "AWS Fraud Detector", "Performs rule- and ML-based fraud detection")
+                                SageMaker(sagemaker, "SageMaker Predictor", "AWS SageMaker", "Runs custom ML models for fraud/risk scoring")
+                                SageMaker(sagemakerTrainer, "SageMaker Trainer", "AWS SageMaker", "Train custom ML models for fraud/risk scoring")
+                            }
+
+                        }
+                    }
+                }
+            }
+        }
+        AWSAccountGroup(identity,"Identity and Security Account") {
+            Container(idP, "Identity Provider", "Security Hub", "Handles authentication and token verification")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+
+        }
+
+    }
+}
+
+AddRelTag("VPeer", $textColor="purple", $lineColor="purple", $legendText="VPC Internal Traffic Connection", $sprite="VPCPeeringConnection")
+AddRelTag("Plink", $textColor="purple", $lineColor="purple", $legendText="Private Link Connection", $sprite="PrivateLink")
+
+
+' Relationships
+
+' Relationships
+Rel(paymentOrchestrator, kinesis, "Sends transaction for risk analysis", "JSON event")
+Rel(kinesis, consumerLambda, "Delivers transaction events")
+Rel(consumerLambda, stepFunction, "Starts risk evaluation flow", "StepFunction trigger")
+Rel(stepFunction, fraudDetector, "Evaluate rule-based score", "Request JSON")
+Rel(stepFunction, sagemaker, "Evaluate ML fraud model", "Invoke endpoint")
+Rel(stepFunction, sns, "Notify result if rejected", "SNS Message")
+Rel(stepFunction, paymentOrchestrator, "Returns accept/reject result", "Response JSON")
+Rel(stepFunction, paymentDb, "Reads payment or profile data", "DynamoDB / Aurora query")
+
+Rel(route53Int, api, "Routes internal requests", "HTTPS")
+Rel(paymentOrchestrator, route53Int, "Routes internal requests", "HTTPS")
+Rel(api,consumerLambda, "Triggers transaction processing", "HTTPS")
+Rel(trainingLambda, kinesis, "Consume model training", "Kinesis event read")
+Rel(trainingLambda, s3HotTraining, "Store training data", "S3 event write")
+Rel_U(sagemakerTrainer, s3HotTraining, "Read training data", "S3 event read")
+Rel(sagemakerTrainer, s3Hot, "Store model data", "S3 event write")
+Rel_U(sagemaker, s3Hot, "Read model data", "S3 event read")
+
+
+SHOW_LEGEND()
+
+
+@enduml

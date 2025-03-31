@@ -1,0 +1,100 @@
+@startuml 04-component-ob-api
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+
+!includeurl C4Puml/C4_Component.puml
+
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/PublicSubnet.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/SecurityIdentityCompliance/WAF.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/NetworkingContentDelivery/ElasticLoadBalancing.puml
+!include AWSPuml/Analytics/ManagedStreamingforApacheKafka.puml
+!include AWSPuml/ApplicationIntegration/SimpleQueueService.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/NetworkingContentDelivery/Route53.puml
+!include AWSPuml/NetworkingContentDelivery/VPCEndpoints.puml
+!include AWSPuml/NetworkingContentDelivery/PrivateLink.puml
+!include AWSPuml/NetworkingContentDelivery/VPCPeeringConnection.puml
+!include AWSPuml/SecurityIdentityCompliance/Shield.puml
+!include AWSPuml/Groups/Generic.puml
+!include AWSPuml/NetworkingContentDelivery/SitetoSiteVPN.puml
+
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Open Banking Gateway
+
+System_Ext(financial, "Financial Institution", "Bank or provider for Open Banking and settlements", $sprite="bank")
+
+
+' Gateway boundary
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(inthub, "Integration Hub") {
+            Container_Boundary(apiGateway, "Open Banking Gateway") {
+                AWSAccountGroup(networking,"Networking Account") {
+                    RegionGroup(region, "Region (Replicated in2/3 Regions)") {
+                        GenericGroup(apigroup) {
+                            APIGateway(api, "API Gateway", "Amazon API Gateway", "Handles REST API routing and throttling")
+                            APIGateway(authzapi,"Authentication API Gateway", "Amazon API Gateway", "Handled Authentication (JWT token Adquire)")
+                        }
+                        VPCGroup(vpc, "Open Banking Integration VPC"){
+                            ElasticLoadBalancing(nlb, "Network Load Balancer", "AWS NLB", "Routes internal traffic to Lambda or ECS")
+                            VPCEndpoints(endpoints, "VPC Endpoints", "AWS VPC Endpoints", "Private endpoints for SQS and Kafka or other services")
+                        }
+                    }
+                    Route53(route53, "Route 53", "AWS Route 53", "DNS service for API Gateway")
+                    WAF(waf, "Web Application Firewall", "AWS WAF", "Protects APIs from malicious requests")
+                    Shield(shield, "DDoS Protection", "AWS Shield", "Protects against DDoS attacks")
+
+                }
+            }
+            AWSAccountGroup(payment,"Integration Account") {
+                Container(obService, "Open Banking Services", "Multiple", "Handles Open Banking Transactions")
+            }
+        }
+        AWSAccountGroup(identity,"Identity and Security Account") {
+            Container(idP, "Identity Provider", "Security Hub", "Handles authentication and token verification")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+
+        }
+
+    }
+}
+
+AddRelTag("VPeer", $textColor="purple", $lineColor="purple", $legendText="VPC Internal Traffic Connection", $sprite="VPCPeeringConnection")
+AddRelTag("Plink", $textColor="purple", $lineColor="purple", $legendText="Private Link Connection", $sprite="PrivateLink")
+AddRelTag("VPN", $sprite="SitetoSiteVPN")
+
+
+
+' Relationships
+Rel_L(waf, route53, "Inspects and Verifies requests", "HTTPS")
+Rel_R(shield, route53, "Inspects and Verifies requests", "HTTPS")
+Rel(api, idP, "Passes token for validation, Validates token & scopes", "OAuth2/OpenID Connect")
+Rel(authzapi, idP, "Request Token", "OAuth2/OpenID Connect")
+Rel(idP, authzapi, "Returns claims/context")
+Rel(api, nlb, "Routes internal requests", "HTTPS")
+Rel(endpoints, obService, "Redirect Traffic", "HTTPS",$tags="PLink")
+Rel(nlb, endpoints, "Routes internal traffic to Other Services", "HTTPS")
+
+Rel(financial, route53, "Resolves DNS for API Gateways and Communicates", "TCP/IP DNS / HTTPS (VPN)", $tags="VPN")
+Rel(route53, authzapi, "Authenticates and authorizes requests", "HTTPS")
+Rel(route53, api, "Manages refunds, views transactions", "HTTPS")
+
+
+SHOW_LEGEND()
+
+@enduml

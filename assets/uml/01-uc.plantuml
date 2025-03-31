@@ -1,0 +1,91 @@
+@startuml 01-uc
+Title Use Case Diagram
+
+left to right direction
+
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+!includeurl C4Puml/C4_Sequence.puml
+!includeurl C4Puml/C4_Container.puml
+
+'stdlib users.puml defines sprite "users"
+!include <office/users/users.puml>
+
+Person(customer, "Customer", "User who initiates and tracks payments through the system")
+Person(merchant, "Merchant", "Merchant that receives payments or initiates refunds")
+Person_Ext(integrator, "Integrator", "External integrator that uses the payment system")
+System_Ext(financial, "Financial Institution", "Financial institution that interacts with the platform",$sprite="robot")
+Person(compliance, "Compliance Officer", "Ensures anti-fraud, AML, KYC rules are enforced. Review alerts related")
+Person(support, "Support Agent", "handles user issues, disputes, and exceptions or monitor the system")
+Person(admin, "Admin", "Admin that reviews the process")
+Person(reporting, "Reporting User", "Accesses platform data for business or compliance reporting")
+System_Ext(processor, "Payment Processor", "3rd party system that allow to execute the payment",$sprite="robot")
+System_Ext(bi, "Business Inteligence Platform", "Business Intelligence Platform that allows to create reports and dashboards", $sprite="robot")
+System_Ext(monitor, "External Monitoring Platform", "External monitoring and alerting system", $sprite="img:https://static-00.iconduck.com/assets.00/datadog-icon-478x512-0oveejzz.png{scale=0.1}")
+
+
+Boundary(uc, "High-Volumen Payment Processing System") {
+
+        usecase "Payment" as UC01 <<event>> 
+        usecase "Validate Payment" as UC02 <<lambda>> 
+        usecase "Authorize Payment" as UC03 <<async>> 
+        usecase "Capture/Settle Payment" as UC04 <<async>> 
+        usecase "Refund Payment" as UC05 <<event>> 
+        usecase "View Payment Status" as UC06 <<realtime>> 
+        usecase "Payment Failure" as UC07 <<event>> 
+        usecase "Monitor & Alert" as UC08 <<eventbridge>> 
+        usecase "Reconcile Transactions" as UC09 <<scheduled>> 
+        usecase "Admin Configurations" as UC10 <<admin-console>> 
+        usecase "Connect Bank Account" as UC11 <<openbanking>> 
+        usecase "Instant Payment" as UC12 <<openbanking>> 
+        usecase "Risk Assessment" as UC13 <<event>> 
+        usecase "Anonymized Data" as UC14 <<realtime>> 
+
+}
+
+' Use case interactions
+customer --> UC01
+integrator --> UC01
+UC01 ..> UC02 : include
+UC01 ..> UC03 : include
+UC01 ..> UC04 : include
+UC01 --> UC06 : extend
+UC01 --> UC07 : extend
+UC04 ..> UC09 : include
+UC07 ..> UC08 : include
+UC13 ..> UC08 : include
+UC03 --> UC13 : extend
+UC12 --> UC06 : extend
+UC12 --> UC02 : include
+
+Rel_U(compliance, UC08, "")
+Rel_U(bi, UC14, "")
+Rel_D(merchant, UC05, "")
+Rel(customer, UC06,"")
+Rel(integrator,UC06,"")
+Rel_U(support, UC06, "")
+Rel_U(support, UC08, "")
+Rel_U(admin, UC08, "")
+Rel_U(admin, UC10, "")
+Rel(customer, UC11, "")
+Rel(financial,UC11,"")
+Rel(financial,UC12,"")
+Rel(financial,UC04,"")
+Rel(financial,UC05,"")
+
+Rel_U(reporting, UC09, "")
+Rel_U(reporting, UC08, "")
+Rel_U(reporting, UC14, "")
+
+Rel_U(processor, UC04, "")
+Rel_U(processor, UC03, "")
+Rel_U(processor, UC02, "")
+Rel_U(processor, UC05, "")
+Rel(monitor, UC08, "")
+
+Lay_L(UC08,UC10)
+Lay_R(UC14,UC08)
+Lay_R(compliance,support)
+
+@enduml
+
+

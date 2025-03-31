@@ -1,0 +1,103 @@
+@startuml 02-system-context
+
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+' Global C4 Definition
+' !include C4Puml/C4.puml
+!include C4Puml/C4_Context.puml
+!include C4Puml/C4_Component.puml
+!include C4Puml/C4_Container.puml
+!include C4Puml/C4_Deployment.puml
+
+' Import icons
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+
+'AWS Imports
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+
+' Title
+LAYOUT_TOP_DOWN()
+title System Context - High-Volume Payment Processing System
+
+'  Actors
+Person(customer, "Customer", "Uses the platform to make payments and track status")
+Person(merchant, "Merchant", "Receives payments and initiates refunds")
+Person_Ext(integrator, "Integrator", "External system that integrates via APIs")
+Person(compliance, "Compliance Officer", "Monitors regulatory compliance and reviews alerts")
+Person(support, "Support Agent", "Handles disputes and monitors flows")
+Person(admin, "Admin", "Configures platform rules, roles, and settings")
+Person(reporting, "Reporting User", "Accesses reporting and transaction insights")
+
+
+' External Systems
+System_Ext(financial, "Financial Institution", "Bank or provider for Open Banking and settlements", $sprite="bank")
+System_Ext(processor, "Payment Processor", "3rd-party system to execute payments", $sprite="payment")
+System_Ext(monitor, "External Monitoring Platform", "External monitoring and alerting system", $sprite="img:https://static-00.iconduck.com/assets.00/datadog-icon-478x512-0oveejzz.png{scale=0.1}")
+
+
+' Our system
+AWSCloudGroup(AWS, "Amazon Web Services") {
+    System_Boundary(hvp3,"High-Volume Payment Processing Platform") {
+        System(payhub,"Payment Hub Services", "Core services for payment processing managing Initiation, Risk management, Authorization, Verification and Network Selection")
+        System(monitoring,"Monitoring & Alerting", "Monitors transactions and alerts for compliance and fraud")
+        System(reportingHub,"Reporting Hub", "Provides reporting and analytics for transactions")
+        System(adminHub,"Administration Hub", "Admin interface for configuration and management")
+        System(inthub,"Integration Hub", "Gateway for external Banking/3rdParty integrations")
+        System(sec,"Security Hub", "Solitions that guarantee security and compliance")
+
+    }
+    System_Ext(bi, "Business Intelligence Platform", "Consumes anonymized data for reporting", $sprite="robot")
+
+}
+
+
+
+' Relationships
+AddRelTag("Payment", $textColor="blue", $lineColor="blue", $legendText="Payment")
+AddRelTag("Integration", $textColor="red", $lineColor="red", $legendText="Inegration")
+AddRelTag("Reporting", $textColor="purple", $lineColor="purple", $legendText="Reporting")
+AddRelTag("Monitoring", $textColor="DarkGoldenRod", $lineColor="DarkGoldenRod", $legendText="Monitoring and Alerting")
+AddRelTag("Administration", $textColor="green", $lineColor="green", $legendText="Admin")
+
+
+Rel(customer, payhub, "Initiates payments, views status", "HTTPS / Web / Mobile", "", "" , "Payment")
+Rel(merchant, payhub, "Receives payments, issues refunds", "HTTPS / Dashboard" , "", "" , "Payment")
+Rel(integrator, inthub, "Initiates payments via APIs", "REST APIs / Webhooks", "", "" , "Integration")
+Rel(compliance, monitoring, "Reviews alerts, monitors compliance", "Admin Console / API", "", "" , "Monitoring")
+Rel(compliance, reportingHub, "Reviews reports and metrics", "BI Dashboard", "", "" , "Reporting")
+Rel(support, monitoring, "Handles issues, monitors system and exceptions", "Support Dashboard", "", "" , "Monitoring")
+Rel(monitor, monitoring, "Monitors system and alerts", "Monitoring Dashboard", "", "" , "Monitoring")
+
+Rel(support, reportingHub, "Accesses reports and metrics", "BI Dashboard", "", "" , "Reporting")
+Rel(admin, adminHub, "Manages config and roles", "Admin Console", "", "" , "Administration")
+Rel(admin,sec, "Manages security and compliance technical components", "Admin Console", "", "" , "Administration")
+
+Rel(reporting, reportingHub, "Accesses reports and metrics", "BI Dashboard", "", "" , "Reporting")
+
+Rel_D(payhub, processor, "Sends/receives payment instructions", "HTTPS / Secure Channel", "", "" , "Payment")
+BiRel_D(inthub, financial, "Initiates/settles bank payments, fetches data", "Open Banking APIs", "", "" , "Integration")
+BiRel_D(payhub, financial, "Sends/receives payment instructions", "Open Banking APIs", "", "" , "Payment")
+Rel(reportingHub, bi, "Streams anonymized data for reporting", "Kinesis / S3 / Redshift", "", "" , "Reporting")
+
+Lay_D(bi,financial)
+Lay_L(financial,processor)
+' Lay_R(processor,integrator)
+
+Lay_R(inthub,payhub)
+Lay_R(payhub,monitoring)
+Lay_R(monitoring,reportingHub)
+Lay_R(reportingHub,adminHub)
+
+
+SHOW_LEGEND()
+
+@enduml

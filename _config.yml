@@ -1,0 +1,27 @@
+remote_theme: pages-themes/architect@v0.2.0
+
+title: High-volume Payment Processing Application
+
+repository: jcmendez-guerrero/challenge-payment
+tagline: A docummentation site for a High-volume Payment Processing Application
+description: >-
+  A docummentation site for a High-volume Payment Processing Application
+plugins:
+  - jekyll-remote-theme
+  - jekyll-relative-links
+  - jemoji
+relative_links:
+  enabled: true
+  collections: true
+include:
+  - README.md
+  - 01-introduction-and-goals.md
+  - 02-technical-constraints.md
+  - 03-system-context-and-scope.md
+  - 04-building-block-view.md
+  - 05-RuntimeOverview.md
+  - 06-design-decisions.md
+  - 07-technical-risks.md
+  - 08-quality.md
+  - 09-Glossary.md
+show_downloads: true

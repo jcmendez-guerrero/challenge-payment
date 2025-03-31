@@ -1,0 +1,129 @@
+@startuml 04-component-ob-services
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+
+!includeurl C4Puml/C4_Component.puml
+
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+!include AWSPuml/Groups/PublicSubnet.puml
+!include AWSPuml/Groups/PrivateSubnet.puml
+!include AWSPuml/Groups/Region.puml
+!include AWSPuml/Groups/VPC.puml
+!include AWSPuml/Groups/AWSAccount.puml
+!include AWSPuml/SecurityIdentityCompliance/WAF.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/NetworkingContentDelivery/ElasticLoadBalancing.puml
+!include AWSPuml/Analytics/ManagedStreamingforApacheKafka.puml
+!include AWSPuml/ApplicationIntegration/SimpleQueueService.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/NetworkingContentDelivery/Route53.puml
+!include AWSPuml/NetworkingContentDelivery/VPCEndpoints.puml
+!include AWSPuml/NetworkingContentDelivery/PrivateLink.puml
+!include AWSPuml/NetworkingContentDelivery/VPCPeeringConnection.puml
+!include AWSPuml/SecurityIdentityCompliance/Shield.puml
+!include AWSPuml/Groups/Generic.puml
+!include AWSPuml/NetworkingContentDelivery/SitetoSiteVPN.puml
+!include AWSPuml/Containers/Fargate.puml
+!include AWSPuml/Containers/ElasticContainerRegistry.puml
+!include AWSPuml/Containers/ElasticContainerService.puml
+!include AWSPuml/NetworkingContentDelivery/VPCNATGateway.puml
+!include AWSPuml/Containers/ElasticContainerServiceContainer1.puml
+!include AWSPuml/Database/Aurora.puml
+!include AWSPuml/Database/DynamoDB.puml
+!include AWSPuml/Database/ElastiCacheElastiCacheforRedis.puml
+
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+
+LAYOUT_TOP_DOWN()
+title Component Diagram - Open Banking Services
+
+System_Ext(financial, "Financial Institution", "Bank or provider for Open Banking and settlements", $sprite="bank")
+
+
+' Gateway boundary
+AWSCloudGroup(aws, "AWS Cloud") {
+    System_Boundary(hvp3, "High-Volume Payment Processing Platform") {
+        System_Boundary(inthub, "Integration Hub") {
+            Container_Boundary(apiGateway, "Open Banking Services") {
+                AWSAccountGroup(networking,"Networking Account") {
+                    RegionGroup(region, "Region (Replicated in2/3 Regions)") {
+                        VPCGroup(vpc, "Open Banking Integration VPC"){
+                            ElasticLoadBalancing(nlb, "Network Load Balancer", "AWS NLB", "Routes internal traffic to Lambda or ECS")
+                        }
+                    }
+                    Route53(route53Int, "Route 53", "AWS Route 53", "DNS service")
+                }
+                AWSAccountGroup(intAcc,"Integration Account") {
+                    RegionGroup(regionA, "Region (Replicated in2/3 Regions)") {
+                        ElasticContainerRegistry(ecrA, "ECR Images", "Container registry")
+                        ElasticContainerService(ecsA, "ECS Cluster", "Manages Fargate tasks")
+                        PrivateSubnetGroup(privateSubnetA, "Private Subnet") {
+                            Fargate(fargateA, "ECS Fargate Services", "Executes orchestrator components") {
+                                ElasticContainerServiceContainer1(accountService, "Account Service", "Handles account-related operations")
+                                ElasticContainerServiceContainer1(paymentService, "Payment Service", "Handles payment-related operations")
+                                ElasticContainerServiceContainer1(syncService, "Sync Service", "Handles synchronization with external systems")
+                            }
+                            ElastiCacheElastiCacheforRedis(cacheA, "Hot Cache", "ElastiCache Redis", "Caches frequently accessed payment/session data")
+                        }                    
+                    }
+                }
+            }
+            Container(obGateway, "Open Banking Gateway", "APIGateway", "Connects to external bank APIs using Open Banking protocols")
+        }
+        AWSAccountGroup(identity,"Identity and Security Account") {
+            Container(idP, "Identity Provider", "Security Hub", "Handles authentication and token verification")
+            Container(secServices, "Security Services", "Multiple", "Handles encryption, key management, and security policies")
+
+        }
+        System_Boundary(payhub, "Payment Hub") {
+            Container(paymentOrchestrator, "Payment Orchestrator", "Multiple", "Coordinates payment flows: validate, authorize, settle")
+        }
+    }
+}
+
+AddRelTag("VPeer", $textColor="purple", $lineColor="purple", $legendText="VPC Internal Traffic Connection", $sprite="VPCPeeringConnection")
+AddRelTag("Plink", $textColor="purple", $lineColor="purple", $legendText="Private Link Connection", $sprite="PrivateLink")
+AddRelTag("VPN", $sprite="SitetoSiteVPN")
+
+
+
+' Relationships
+Rel(route53Int, nlb, "Resolves service endpoints")
+Rel(obGateway, route53Int, "Redirect Requests", "HTTPS")
+
+' ECS services usage
+Rel(nlb, accountService, "", "HTTPS")
+Rel(nlb, paymentService, "", "HTTPS")
+Rel(nlb, syncService, "", "HTTPS")
+
+Rel_L(fargateA, ecsA,"")
+Rel_R(ecsA, ecrA,"")
+
+
+' Identity interaction
+Rel(fargateA, idP, "Validates token and scopes or APi Payment Cryptographic Services", "mTLS")
+Rel(fargateA, secServices, "Handles encryption, key management", "mTLS")
+
+' Cache usage
+Rel(fargateA, cacheA, "Caches hot Open Banking data", "mTLS")
+
+
+Rel_L(syncService, financial, "Syncs data with external systems", "HTTPS",$tags="VPN")
+
+Rel_R(paymentService, paymentOrchestrator, "Handles payment requests", "HTTPS")
+Rel_R(accountService, paymentOrchestrator, "Handles account-related requests", "HTTPS")
+
+
+Lay_L(inthub, identity)
+
+SHOW_LEGEND()
+
+@enduml

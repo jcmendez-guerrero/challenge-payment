@@ -1,0 +1,141 @@
+@startuml 02-tech-context
+
+' C4
+!define C4Puml https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master
+'Icons
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons
+
+'AWS
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist
+' Global C4 Definition
+' !include C4Puml/C4.puml
+!include C4Puml/C4_Context.puml
+!include C4Puml/C4_Component.puml
+!include C4Puml/C4_Container.puml
+!include C4Puml/C4_Deployment.puml
+
+' Import icons
+' Icon Definition
+!include ICONURL/font-awesome/bank.puml
+!include ICONURL/material/payment.puml
+!include ICONURL/material/laptop.puml
+!include ICONURL/font-awesome-6/cash_register.puml
+!include ICONURL/font-awesome-6/server.puml
+!include ICONURL/govicons/mobile.puml
+
+'AWS Imports
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Groups/AWSCloud.puml
+
+' Title
+LAYOUT_TOP_DOWN()
+title Technical Context - High-Volume Payment Processing System
+
+'  Actors
+Person(customer, "Customer", "Uses the platform to make payments and track status")
+Person(merchant, "Merchant", "Receives payments and initiates refunds")
+Person_Ext(integrator, "Integrator", "External system that integrates via APIs")
+Person(compliance, "Compliance Officer", "Monitors regulatory compliance and reviews alerts")
+Person(support, "Support Agent", "Handles disputes and monitors flows")
+Person(admin, "Admin", "Configures platform rules, roles, and settings")
+Person(reporting, "Reporting User", "Accesses reporting and transaction insights")
+
+
+' External Systems
+System_Ext(financial, "Financial Institution", "Bank or provider for Open Banking and settlements", $sprite="bank")
+System_Ext(processor, "Payment Processor", "3rd-party system to execute payments", $sprite="payment")
+System_Ext(monitor, "External Monitoring Platform", "External monitoring and alerting system", $sprite="img:https://static-00.iconduck.com/assets.00/datadog-icon-478x512-0oveejzz.png{scale=0.1}")
+
+System_Ext(computer_ext, "Computer", "External Computer", $sprite="laptop")
+System(computer, "Laptop", "Internal Company Computer", $sprite="laptop")
+System(mobile, "Mobile", "Internal Mobile", $sprite="mobile")
+System_Ext(mobile_ext, "Mobile", "External Mobile", $sprite="mobile")
+System_Ext(pos, "POS", "Point of Sales", $sprite="cash_register")
+
+System_Ext(server, "Server", "External Server", $sprite="server")
+
+
+' Our system
+AWSCloudGroup(AWS, "Amazon Web Services") {
+    System_Boundary(hvp3,"High-Volume Payment Processing Platform") {
+        System(payhub,"Payment Hub Services", "Core services for payment processing managing Initiation, Risk management, Authorization, Verification and Network Selection")
+        System(monitoring,"Monitoring & Alerting", "Monitors transactions and alerts for compliance and fraud")
+        System(reportingHub,"Reporting Hub", "Provides reporting and analytics for transactions")
+        System(adminHub,"Administration Hub", "Admin interface for configuration and management")
+        System(inthub,"Integration Hub", "Gateway for external Banking/3rdParty integrations")
+        System(sec,"Security Hub", "Solitions that guarantee security and compliance")
+    }
+    System_Ext(bi, "Business Intelligence Platform", "Consumes anonymized data for reporting", $sprite="robot")
+
+}
+
+
+
+' Relationships
+AddRelTag("Payment", $textColor="blue", $lineColor="blue", $legendText="Payment")
+AddRelTag("Integration", $textColor="red", $lineColor="red", $legendText="Inegration")
+AddRelTag("Reporting", $textColor="purple", $lineColor="purple", $legendText="Reporting")
+AddRelTag("Monitoring", $textColor="DarkGoldenRod", $lineColor="DarkGoldenRod", $legendText="Monitoring and Alerting")
+AddRelTag("Administration", $textColor="green", $lineColor="green", $legendText="Admin")
+
+
+Rel(mobile_ext, payhub, "", "HTTPS (Internet)", "", "" , "Payment")
+Rel(computer_ext, payhub, "", "HTTPS (Internet)", "", "" , "Payment")
+Rel(pos, payhub, "", "HTTPS (Internet)", "", "" , "Payment")
+
+Rel(merchant, mobile_ext, "", "" , "", "" , "Payment")
+Rel(merchant, computer_ext, "", "" , "", "" , "Payment")
+Rel(merchant, pos, "", "" , "", "" , "Payment")
+
+Rel(customer, mobile_ext, "", "" , "", "" , "Payment")
+Rel(customer, computer_ext, "", "" , "", "" , "Payment")
+Rel(customer, pos, "", "" , "", "" , "Payment")
+
+
+
+Rel(computer_ext, inthub, "", "HTTPS (REST APIs / Webhooks)", "", "" , "Integration")
+
+Rel(integrator, computer_ext, "", "", "" , "", "Integration")
+
+
+Rel(computer, monitoring, "", "HTTPS (VPN)", "", "" , "Monitoring")
+Rel(computer, reportingHub, "", "HTTPS (VPN)", "", "" , "Reporting")
+Rel(mobile, monitoring, "", "HTTPS (VPN)", "", "" , "Monitoring")
+Rel(mobile, reportingHub, "", "HTTPS (VPN)", "", "" , "Reporting")
+
+Rel(support, computer, "", "", "", "" , "Reporting")
+Rel(compliance, computer, "", "", "", "" , "Monitoring")
+Rel(support, mobile, "", "", "", "" , "Reporting")
+Rel(compliance, mobile, "", "", "", "" , "Monitoring")
+
+Rel(admin, computer, "", "", "", "" , "Administration")
+Rel(computer, adminHub, "", "HTTPS / VPN", "", "" , "Administration")
+Rel(computer, sec, "", "HTTPS / VPN", "", "" , "Administration")
+
+Rel(reporting, computer, "", "", "", "" , "Reporting")
+
+Rel_D(payhub, server, "", "HTTPS / VPN", "", "" , "Payment")
+Rel_D(server, processor, "", "", "", "" , "Payment")
+BiRel_D(inthub, server, "", "HTTPS APIs", "", "" , "Integration")
+BiRel_U(financial, server, "", "", "", "" , "Integration")
+BiRel_D(payhub, server, "", "HTTPS APIs", "", "" , "Payment")
+BiRel_D(server, financial, "", "", "", "" , "Payment")
+Rel(reportingHub, bi, "", "HTTPS", "", "" , "Reporting")
+
+Rel(server, monitoring, "", "HTTPS (VPN Integration)", "", "" , "Monitoring")
+Rel(monitor, server, "", "", "", "" , "Monitoring")
+
+
+Lay_D(bi,financial)
+Lay_L(financial,processor)
+' Lay_R(processor,integrator)
+
+Lay_R(inthub,payhub)
+Lay_R(payhub,monitoring)
+Lay_R(monitoring,reportingHub)
+Lay_R(reportingHub,adminHub)
+
+
+SHOW_LEGEND()
+
+@enduml
