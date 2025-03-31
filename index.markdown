@@ -26,6 +26,39 @@
     - [Objectives](#objectives)
 - [Solution Strategy](#solution-strategy)
 - [Solution Content](#solution-content)
+    - [1.1 Requirements Overview](#11-requirements-overview)
+    - [1.2 Quality Goals](#12-quality-goals)
+    - [1.3 Systems Stakeholders](#13-systems-stakeholders)
+- [2 Architecture Constraints](#2-architecture-constraints)
+    - [2.1 Regulatory Constraints](#21-regulatory-constraints)
+    - [2.2 Technical Constraints](#22-technical-constraints)
+    - [2.3 Conventions](#23-conventions)
+    - [2.4 Project and Documentation constraints](#24-project-and-documentation-constraints)
+- [3 System Context and Scope](#3-system-context-and-scope)
+    - [3.1 System Context Diagram](#31-system-context-diagram)
+        - [3.1.1 Interaction Details](#311-interaction-details)
+- [4 System Context and Scope](#4-system-context-and-scope)
+    - [4.1 Container Diagram](#41-container-diagram)
+    - [4.2 Components Diagrams](#42-components-diagrams)
+        - [4.2.1 Payment Hub - Payment API Gateway](#421-payment-hub---payment-api-gateway)
+        - [4.2.2 Payment Hub - Payment Orchestrator](#422-payment-hub---payment-orchestrator)
+        - [4.2.3 Payment Hub - Payment Ledger & Data Manager](#423-payment-hub---payment-ledger--data-manager)
+        - [4.2.4 Payment Hub - Risk Assessment Engine](#424-payment-hub---risk-assessment-engine)
+        - [4.2.5 Integration Hub - Open Banking Gateway](#425-integration-hub---open-banking-gateway)
+        - [4.2.6 Integration Hub - Open Banking Services](#426-integration-hub---open-banking-services)
+        - [4.2.7 Integration Hub - 3rd Party Gateway](#427-integration-hub---3rd-party-gateway)
+        - [4.2.8 Monitoring & Logging - Alert Engine](#428-monitoring--logging---alert-engine)
+        - [4.2.9 Monitoring & Logging - Support Advisor](#429-monitoring--logging---support-advisor)
+        - [4.2.10 Reporting Hub - Analytics Engine](#4210-reporting-hub---analytics-engine)
+        - [4.2.11 Administration Hub - Configuration Platform](#4211-administration-hub---configuration-platform)
+        - [4.2.12 Security Hub - Security Services](#4212-security-hub---security-services)
+        - [4.2.13 Security Hub - Identity Provider (IdP)](#4213-security-hub---identity-provider-idp)
+- [5 Runtime View](#5-runtime-view)
+    - [5.1 Scenario 1 - Payment (Simplified)](#51-scenario-1---payment-simplified)
+- [6 Design Decisions](#6-design-decisions)
+- [7 Technical Risks](#7-technical-risks)
+- [8 Quality Requirements](#8-quality-requirements)
+- [9 Glossary](#9-glossary)
 
 <!-- /TOC -->
 
@@ -769,7 +802,7 @@ Workflow:
 > [!NOTE] 
 > Please remember that this is a simplified version
 
-```mermaid
+<div class="mermaid">
 sequenceDiagram
     autonumber
     participant Customer
@@ -802,7 +835,7 @@ sequenceDiagram
     else Risk Blocked
         Payment Orchestrator->>Customer: Notify Customer (Rejected)
     end
-```
+</div>
 
 1. **Customer** initiates a payment request through the **Payment API Gateway**.
 2. The API Gateway forwards the request to the **Identity Provider** to validate the customer's token and identity.
